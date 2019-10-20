@@ -6,7 +6,12 @@ from pymongo import MongoClient
 import pandas as pd
 import numpy as np
 import folium
+<<<<<<< HEAD
 import json
+=======
+import collections
+from folium.plugins import HeatMap
+>>>>>>> 8eb12750cf01b6471a513d02f015dd785b6232fc
 
 def get_colors(N):
     """
@@ -22,7 +27,7 @@ def get_colors(N):
         colors.append('#{:06x}'.format(np.random.randint(0, 256**3)))
     return colors
 
-def draw_clusters_on_map(df,labels,base_latitude,base_longitude,map_name):
+def draw_clusters_on_map(df,labels,base_latitude,base_longitude):
     """
     Params :
         df : pandas dataframe
@@ -33,10 +38,6 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude,map_name):
                 latitude of map center
         base_longitude : float
                 longitude of map center
-        map_name : string
-                name of map to be generated
-        labels : string list
-                names of clusters
     Returns :
         map : HTML code
             Folium object rendered as html
@@ -45,9 +46,11 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude,map_name):
 
     # set color scheme for the clusters
     k=len(labels)
+    count=collections.Counter(df['crime_label'].values)
+    total=len(df['crime_label'].values)
     rainbow=get_colors(k)
     for cluster in range(0,k):
-        group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]))
+        group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]+" ("+str(count[cluster]/total)+"%)"))
         for lat, lon,label in zip(df['latitude'], df['longitude'], df['crime_label']):
             if int(label) == cluster:
                 label = folium.Popup('Clustering ' + str(labels[cluster]), parse_html=True)
@@ -94,7 +97,26 @@ def get_random_dataframe(base_latitude, base_longitude, labels, num_examples, co
     df[columns[len(columns)-1]]=df[columns[len(columns)-1]].astype(int)
     return df
 
+def heat_map(df,base_latitude, base_longitude):
+    """
+    code to do the heat map
+
+    df_old=get_data(filename,columns)
+    data=np.array(df_old[list(["latitude","longitude","price"])])
+
+    base_map = generateBaseMap(np.mean(data[:, :-1], axis=0))
+    HeatMap(data=df_old[["latitude", "longitude" , "price"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
+        radius=8, max_zoom=13).add_to(base_map)
+    """
+    base_map = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
+    HeatMap(data=df[["latitude", "longitude" , "crime_label"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
+    radius=8, max_zoom=13).add_to(base_map)
+    return base_map._repr_html_()
+
 def test():
+    """
+    testing the folium code
+    """
     base_latitude = 42.3397
     base_longitude = -71.1352
 
@@ -102,14 +124,15 @@ def test():
 
     columns=np.array(['latitude','longitude','crime_label'])
     num_examples=100
-    #update funtion
+    map_type="heat_map"
+
     df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
 
-    map_name="outputs/folium_map"
-    return draw_clusters_on_map(df,labels,base_latitude,base_longitude,map_name)
-
-# if __name__ == "__main__":
-#     test()
+    # map_name="outputs/folium_map"
+    if(map_type=="cluster_map"):
+        return draw_clusters_on_map(df,labels,base_latitude,base_longitude)
+    elif(map_type=="heat_map"):
+        return heat_map(df,base_latitude, base_longitude)
 
 def index(request):
     category = request.GET.get("category") # 0: cluster_map 1: heat_map
@@ -117,7 +140,6 @@ def index(request):
     time_end = request.GET.get("time_end")
     center_lat = request.GET.get("c_lat")
     center_long = request.GET.get("c_long")
-
 
     client = MongoClient("mongodb+srv://insight:insight@cluster0-ixccp.mongodb.net/test?retryWrites=true&w=majority")
     table = client.hacked.er_patient_data
