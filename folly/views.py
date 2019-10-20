@@ -14,7 +14,7 @@ def get_colors(N):
     Params :
         N : integer
             Number of colors needed
-    Returns : 
+    Returns :
         colors : list
             List of randomly generated colors
     """
@@ -37,9 +37,9 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude):
     Returns :
         map : HTML code
             Folium object rendered as html
-    """    
+    """
     map_clusters = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
-    
+
     # set color scheme for the clusters
     k=len(labels)
     count=collections.Counter(df['crime_label'].values)
@@ -48,7 +48,7 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude):
     for cluster in range(0,k): 
         group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]+" ("+str(count[cluster]/total)+"%)"))
         for lat, lon,label in zip(df['latitude'], df['longitude'], df['crime_label']):
-            if int(label) == cluster: 
+            if int(label) == cluster:
                 label = folium.Popup('Clustering ' + str(labels[cluster]), parse_html=True)
                 folium.CircleMarker(
                     (lat, lon),
@@ -85,10 +85,10 @@ def get_random_dataframe(base_latitude, base_longitude, labels, num_examples, co
     geo_data=np.random.randint(0,1000,size=(num_examples, 2))/10000
     geo_data[:,0]+=base_latitude
     geo_data[:,1]=base_longitude-geo_data[:,1]
-    
+
     labels_data=np.random.randint(0,num_labels,size=(num_examples, 1))
     data=np.column_stack((geo_data,labels_data))
-    
+
     df = pd.DataFrame(data, columns=columns)
     df[columns[len(columns)-1]]=df[columns[len(columns)-1]].astype(int)
     return df
@@ -119,8 +119,7 @@ def test():
     labels=np.array(['Drugs','Domestic Violence','Car accidents','Guns'])
 
     columns=np.array(['latitude','longitude','crime_label'])
-    num_examples=100
-    
+    num_examples=100  
     map_type="heat_map"
 
     df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
@@ -132,4 +131,16 @@ def test():
         return heat_map(df,base_latitude, base_longitude)
 
 def index(request):
+    category = request.GET.get("category") # 0: cluster_map 1: heat_map
+    time_start = request.GET.get("time_st")
+    time_end = request.GET.get("time_end")
+    center_lat = request.GET.get("c_lat")
+    center_long = request.GET.get("c_long")
+
+    # print("Hello, world. You're at the folly index. The arguments are:\n"
+    #                     "category = %s\ntime_start = %s\ntime_end = %s\ncenter_latitude = %s center_longtitude = %s"\
+    #                     % (category, time_start, time_end, center_lat, center_long))
+
+
     return HttpResponse(test())
+
