@@ -95,52 +95,50 @@ def get_random_dataframe(base_latitude, base_longitude, labels, num_examples, co
 
 def heat_map(df,base_latitude, base_longitude):
     """
-    code to do the heat map
-
-    df_old=get_data(filename,columns)
-    data=np.array(df_old[list(["latitude","longitude","price"])])
-
-    base_map = generateBaseMap(np.mean(data[:, :-1], axis=0))
-    HeatMap(data=df_old[["latitude", "longitude" , "price"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
-        radius=8, max_zoom=13).add_to(base_map)
+    Params :
+        df : pandas dataframe
+            data
+        base_latitude : float
+                latitude of map center
+        base_longitude : float
+                longitude of map center
+    Returns :
+    map : HTML code
+            Folium object rendered as html
     """
     base_map = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
     HeatMap(data=df[["latitude", "longitude" , "crime_label"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
     radius=8, max_zoom=13).add_to(base_map)
     return base_map._repr_html_()
 
-def test():
+def driver_code(category,base_latitude,base_longitude):
     """
+    Params to get : labels, columns, num_examples, df
     testing the folium code
     """
-    base_latitude = 42.3397
-    base_longitude = -71.1352
-
+    assert type(base_latitude) is float and type(base_longitude) is float and type(category) is int
+    
     labels=np.array(['Drugs','Domestic Violence','Car accidents','Guns'])
 
     columns=np.array(['latitude','longitude','crime_label'])
     num_examples=100  
-    map_type="heat_map"
 
     df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
-    
-    # map_name="outputs/folium_map"
-    if(map_type=="cluster_map"):
+    if(category==0):
         return draw_clusters_on_map(df,labels,base_latitude,base_longitude)
-    elif(map_type=="heat_map"):
+    elif(category==1):
         return heat_map(df,base_latitude, base_longitude)
 
 def index(request):
-    category = request.GET.get("category") # 0: cluster_map 1: heat_map
+    # Boston coordinates
+    # base_latitude = 42.3397
+    # base_longitude = -71.1352
+
+    category = int(request.GET.get("category")) # 0: cluster_map 1: heat_map
     time_start = request.GET.get("time_st")
     time_end = request.GET.get("time_end")
-    center_lat = request.GET.get("c_lat")
-    center_long = request.GET.get("c_long")
+    center_lat = float(request.GET.get("c_lat"))
+    center_long = float(request.GET.get("c_long"))
 
-    # print("Hello, world. You're at the folly index. The arguments are:\n"
-    #                     "category = %s\ntime_start = %s\ntime_end = %s\ncenter_latitude = %s center_longtitude = %s"\
-    #                     % (category, time_start, time_end, center_lat, center_long))
-
-
-    return HttpResponse(test())
+    return HttpResponse(driver_code(category, center_lat, center_long))
 
