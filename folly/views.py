@@ -7,10 +7,11 @@ import pandas as pd
 import numpy as np
 import folium
 import json
+import random
 
-from datetime import datetime  
-from datetime import timedelta  
-import time 
+from datetime import datetime
+from datetime import timedelta
+import time
 
 import collections
 from folium.plugins import HeatMap
@@ -26,7 +27,7 @@ def get_colors(N):
     """
     colors=[]
     for i in range(0,N):
-        colors.append('#{:06x}'.format(np.random.randint(0, 256**3)))
+        colors.append('#{:06x}'.format(random.randint(0, 256**3)))
     return colors
 
 def draw_clusters_on_map_2(map_clusters, data, percentage, labels, base_latitude, base_longitude, color):
@@ -215,7 +216,7 @@ def get_days_range(time_start, time_end):
 def get_points(df,time_start,num_days):
     # compare only date without time
     target_date=time_start+timedelta(days=num_days)
- 
+
     # print(df["time"])
     # df['year']=df['time'].dt.year#.astype(int)
     # df['month']=df['time'].dt.month#.astype(int)
@@ -225,11 +226,11 @@ def get_points(df,time_start,num_days):
     # print("df type",type(df["year"]))
     df = df[df['time'].dt.year == target_date.year]
     df = df[df['time'].dt.month == target_date.month]
-    df = df[df['time'].dt.day == target_date.day] 
-    
+    df = df[df['time'].dt.day == target_date.day]
+
     # and df['time'].dt.month == int(target_date.month) ]
     # and df['day'] == target_date.day )#+timedelta(days=num_days) )# start_date) & (df['time'] <= end_date)
-    
+
     # df = df[mask]
     # print("df at get points",df)
     # df=df[df['time'] == time_start+timedelta(days=num_days)]
@@ -242,12 +243,12 @@ def get_dsv_points(df,time_start, time_end):
     num_days = get_days_range(time_start, time_end)
     plotting_points=[]
     for i in range(num_days):
-        # per day points    
+        # per day points
         points=get_points(df,time_start,i)
         # find center
         if(len(points)):
             plotting_points.append(np.mean(points,axis=0).tolist())
-    return plotting_points 
+    return plotting_points
 
 def driver_code(category,base_latitude,base_longitude, data, time_start, time_end):
     """
@@ -260,8 +261,8 @@ def driver_code(category,base_latitude,base_longitude, data, time_start, time_en
     labels=np.array(["Overdoses", "E.Coli", "Flu", "Colera"])
 
     columns=np.array(['latitude','longitude','reason', 'time'])
-    
-    # num_examples=100  
+
+    # num_examples=100
     # df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
 
     # include the data_frame time values
@@ -274,7 +275,7 @@ def driver_code(category,base_latitude,base_longitude, data, time_start, time_en
         return heat_map(df,base_latitude, base_longitude)
     elif(category==2):
         return dsv_map(df, base_latitude, base_longitude, time_start, time_end)
-    
+
 def index(request):
     # Boston coordinates
     # base_latitude = 42.3397
@@ -285,7 +286,7 @@ def index(request):
     time_end = request.GET.get("time_end")
     time_start = datetime.strptime(time_start, '%Y-%m-%d')
     time_end = datetime.strptime(time_end, '%Y-%m-%d')
-    
+
     #filters results per time frame
 
     center_lat = 42.3397 #float(request.GET.get("c_lat"))
@@ -293,6 +294,7 @@ def index(request):
 
     client = MongoClient("mongodb+srv://insight:insight@cluster0-ixccp.mongodb.net/test?retryWrites=true&w=majority")
     table = client.hacked.er_patient_data
+    random.seed(27)
     # For heatmap
     if category == 0:
         labels = ["Overdoses", "E.Coli", "Flu", "Colera"]
@@ -300,7 +302,7 @@ def index(request):
         mc = folium.Map(location=[center_lat, center_long], zoom_start=11)
         colors = get_colors(len(labels))
         for k, label in enumerate(labels):
-            data = table.find({"reason": label}, {"name": 0, "location": 0})
+            data = table.find({"reason": label, "time": {"$gte": time_start, "$lt": time_end}}, {"name": 0, "location": 0})
             percentage = "%.2f%%" % (data.count()/n)
             group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(colors[k], label +" ("+ percentage +")"))
 
@@ -322,7 +324,8 @@ def index(request):
         return HttpResponse(mc._repr_html_())
     elif category == 1:
         #data = table.find({})
-        data = table.aggregate([{"$group": {"_id": {"latitude": "$latitude", "longitude":"$longitude"}, "count": {"$avg": 1}}}])
+
+        data = table.aggregate([{"$match": {"time": {"$gte": time_start, "$lt": time_end}}}, {"$group": {"_id": {"latitude": "$latitude", "longitude":"$longitude"}, "count": {"$avg": 1}}}])
         #data = table.group(key={"$latitude": 1, "$longitude": 1}, condition={"mean"})
         heat_map_data = [[d["_id"]["latitude"], d["_id"]["longitude"], d["count"]] for d in data]
         #for d in data:
