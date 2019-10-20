@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import folium
 import json
+
 import collections
 from folium.plugins import HeatMap
 
@@ -24,6 +25,27 @@ def get_colors(N):
         colors.append('#{:06x}'.format(np.random.randint(0, 256**3)))
     return colors
 
+def draw_clusters_on_map_2(map_clusters, data, percentage, labels, base_latitude, base_longitude, color):
+    """
+    Params :
+        df : pandas dataframe
+            normalized data
+        labels : string list
+            labels of crimes
+        base_latitude : float
+                latitude of map center
+        base_longitude : float
+                longitude of map center
+    Returns :
+        map : HTML code
+            Folium object rendered as html
+    """
+    # set color scheme for the clusters
+
+    # map_clusters.save(outfile=map_name+".html")
+    #return map_clusters
+
+
 def draw_clusters_on_map(df,labels,base_latitude,base_longitude):
     """
     Params :
@@ -40,15 +62,16 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude):
             Folium object rendered as html
     """
     map_clusters = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
-
+    count = 0
     # set color scheme for the clusters
     k=len(labels)
-    count=collections.Counter(df['crime_label'].values)
-    total=len(df['crime_label'].values)
+    total=len(df['reason'].values)
     rainbow=get_colors(k)
     for cluster in range(0,k):
-        group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]+" ("+str(count[cluster]/total)+"%)"))
-        for lat, lon,label in zip(df['latitude'], df['longitude'], df['crime_label']):
+        percentage = "%.2f%%" % (count[cluster]/total)
+        group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]+" ("+ percentage +")"))
+
+        for lat, lon,label in zip(df['latitude'], df['longitude'], df['reason']):
             if int(label) == cluster:
                 label = folium.Popup('Clustering ' + str(labels[cluster]), parse_html=True)
                 folium.CircleMarker(
@@ -96,52 +119,128 @@ def get_random_dataframe(base_latitude, base_longitude, labels, num_examples, co
 
 def heat_map(df,base_latitude, base_longitude):
     """
-    code to do the heat map
-
-    df_old=get_data(filename,columns)
-    data=np.array(df_old[list(["latitude","longitude","price"])])
-
-    base_map = generateBaseMap(np.mean(data[:, :-1], axis=0))
-    HeatMap(data=df_old[["latitude", "longitude" , "price"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
-        radius=8, max_zoom=13).add_to(base_map)
+    Params :
+        df : pandas dataframe
+            data
+        base_latitude : float
+                latitude of map center
+        base_longitude : float
+                longitude of map center
+    Returns :
+    map : HTML code
+            Folium object rendered as html
     """
     base_map = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
-    HeatMap(data=df[["latitude", "longitude" , "crime_label"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
+    HeatMap(data=df[["latitude", "longitude" , "reason"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
     radius=8, max_zoom=13).add_to(base_map)
     return base_map._repr_html_()
 
-def test():
+def get_datafromdb(data,columns, labels):
     """
+    Params :
+        data : MongoDB object
+                patient data
+        columns : string list
+            column names of data frame
+        labels : string list
+            list of crime types
+    Returns :
+        df : pandas dataframe
+            data
+    """
+    mappingdict = {}
+    for i,label in enumerate(labels):
+        mappingdict.update({label:i})
+
+    df= pd.DataFrame(columns=columns)
+    for dat in data:
+        if(dat):
+            df2=pd.DataFrame(dat,index=[0])
+            df2=df2[columns]
+            df2['reason']=mappingdict[df2['reason'].values[0]]
+            # print(df2)
+            df=df.append(df2, ignore_index=True)
+    df['reason']=df['reason'].astype(int)
+    print(df)
+    return df
+
+def driver_code(category,base_latitude,base_longitude, data):
+    """
+    Params to get : labels, columns, num_examples, df
     testing the folium code
     """
-    base_latitude = 42.3397
-    base_longitude = -71.1352
+    assert type(base_latitude) is float and type(base_longitude) is float and type(category) is int
 
-    labels=np.array(['Drugs','Domestic Violence','Car accidents','Guns'])
+    labels=np.array(["Overdoses", "E.Coli", "Flu", "Colera"])
 
-    columns=np.array(['latitude','longitude','crime_label'])
-    num_examples=100
-    map_type="heat_map"
+    columns=np.array(['latitude','longitude','reason'])
 
-    df = get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
+    # num_examples=100
+    # df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
 
-    # map_name="outputs/folium_map"
-    if(map_type=="cluster_map"):
-        return draw_clusters_on_map(df,labels,base_latitude,base_longitude)
-    elif(map_type=="heat_map"):
-        return heat_map(df,base_latitude, base_longitude)
+    #df= get_datafromdb(data, columns, labels)
+    # print(df.values)
+    if(category==0):
+        return draw_clusters_on_map(data, labels, base_latitude, base_longitude)
+    elif(category==1):
+        return heat_map(data,base_latitude, base_longitude)
+    pass
+
 
 def index(request):
-    category = request.GET.get("category") # 0: cluster_map 1: heat_map
+    # Boston coordinates
+    # base_latitude = 42.3397
+    # base_longitude = -71.1352
+
+    category = int(request.GET.get("category")) # 0: cluster_map 1: heat_map
     time_start = request.GET.get("time_st")
     time_end = request.GET.get("time_end")
-    center_lat = request.GET.get("c_lat")
-    center_long = request.GET.get("c_long")
+
+    center_lat = 42.3397 #float(request.GET.get("c_lat"))
+    center_long = -71.1352#float(request.GET.get("c_long"))
 
     client = MongoClient("mongodb+srv://insight:insight@cluster0-ixccp.mongodb.net/test?retryWrites=true&w=majority")
     table = client.hacked.er_patient_data
-    data = table.find({})
-    print("data:", data[0])
 
-    return HttpResponse(test())
+    # For heatmap
+    if category == 0:
+        labels = ["Overdoses", "E.Coli", "Flu", "Colera"]
+        n = table.find({}).count()
+        mc = folium.Map(location=[center_lat, center_long], zoom_start=11)
+        colors = get_colors(len(labels))
+        for k, label in enumerate(labels):
+            data = table.find({"reason": label}, {"name": 0, "location": 0})
+            percentage = "%.2f%%" % (data.count()/n)
+            group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(colors[k], label +" ("+ percentage +")"))
+
+            for d in data:
+                popup = folium.Popup('Clustering ' + label, parse_html=True)
+                lat, lon = d["latitude"], d["longitude"]
+
+                folium.CircleMarker(
+                    (lat, lon),
+                    radius=3,
+                    popup=popup,
+                    color=colors[k],
+                    fill=True,
+                    fill_color=colors[k],
+                    fill_opacity=0.7).add_to(group)
+            group.add_to(mc)
+        folium.map.LayerControl('topright', collapsed=False).add_to(mc)
+
+        return HttpResponse(mc._repr_html_())
+    else:
+        #data = table.find({})
+        data = table.aggregate([{"$group": {"_id": {"latitude": "$latitude", "longitude":"$longitude"}, "count": {"$avg": 1}}}])
+        #data = table.group(key={"$latitude": 1, "$longitude": 1}, condition={"mean"})
+        heat_map_data = [[d["_id"]["latitude"], d["_id"]["longitude"], d["count"]] for d in data]
+        #for d in data:
+        #    print(d["_id"], d["count"])
+        base_map = folium.Map(location=[center_lat, center_long], zoom_start=11)
+        HeatMap(data=np.array(heat_map_data), radius=8, max_zoom=13).add_to(base_map)
+        return HttpResponse(base_map._repr_html_())
+        pass
+
+
+    return HttpResponse(driver_code(category, center_lat, center_long, data))
 
