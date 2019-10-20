@@ -299,7 +299,7 @@ def index(request):
     if category == 0:
         labels = ["Overdoses", "E.Coli", "Flu", "Colera"]
         n = table.find({}).count()
-        mc = folium.Map(location=[center_lat, center_long], zoom_start=11)
+        mc = folium.Map(location=[center_lat, center_long], zoom_start=13)
         colors = get_colors(len(labels))
         for k, label in enumerate(labels):
             data = table.find({"reason": label, "time": {"$gte": time_start, "$lt": time_end}}, {"name": 0, "location": 0})
@@ -330,8 +330,8 @@ def index(request):
         heat_map_data = [[d["_id"]["latitude"], d["_id"]["longitude"], d["count"]] for d in data]
         #for d in data:
         #    print(d["_id"], d["count"])
-        base_map = folium.Map(location=[center_lat, center_long], zoom_start=11)
-        HeatMap(data=np.array(heat_map_data), radius=8, max_zoom=13).add_to(base_map)
+        base_map = folium.Map(location=[center_lat, center_long], zoom_start=13)
+        HeatMap(data=np.array(heat_map_data), radius=8, max_zoom=15).add_to(base_map)
         return HttpResponse(base_map._repr_html_())
     else:
         # return HttpResponse(driver_code(category, center_lat, center_long, data))
