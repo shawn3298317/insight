@@ -6,12 +6,9 @@ from pymongo import MongoClient
 import pandas as pd
 import numpy as np
 import folium
-<<<<<<< HEAD
 import json
-=======
 import collections
 from folium.plugins import HeatMap
->>>>>>> 8eb12750cf01b6471a513d02f015dd785b6232fc
 
 def get_colors(N):
     """
@@ -126,7 +123,7 @@ def test():
     num_examples=100
     map_type="heat_map"
 
-    df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
+    df = get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
 
     # map_name="outputs/folium_map"
     if(map_type=="cluster_map"):
@@ -144,7 +141,7 @@ def index(request):
     client = MongoClient("mongodb+srv://insight:insight@cluster0-ixccp.mongodb.net/test?retryWrites=true&w=majority")
     table = client.hacked.er_patient_data
     data = table.find({})
-    print("data:", data)
+    print("data:", data[0])
 
     return HttpResponse(test())
 
