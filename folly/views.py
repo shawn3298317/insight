@@ -1,11 +1,12 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 
-# Create your views here.
+from pymongo import MongoClient
 
 import pandas as pd
 import numpy as np
 import folium
+import json
 
 def get_colors(N):
     """
@@ -117,10 +118,11 @@ def index(request):
     center_lat = request.GET.get("c_lat")
     center_long = request.GET.get("c_long")
 
-    print("Hello, world. You're at the folly index. The arguments are:\n"
-                        "category = %s\ntime_start = %s\ntime_end = %s\ncenter_latitude = %s center_longtitude = %s"\
-                        % (category, time_start, time_end, center_lat, center_long))
 
+    client = MongoClient("mongodb+srv://insight:insight@cluster0-ixccp.mongodb.net/test?retryWrites=true&w=majority")
+    table = client.hacked.er_patient_data
+    data = table.find({})
+    print("data:", data)
 
     return HttpResponse(test())
 
