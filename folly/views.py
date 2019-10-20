@@ -8,6 +8,10 @@ import numpy as np
 import folium
 import json
 
+from datetime import datetime  
+from datetime import timedelta  
+import time 
+
 import collections
 from folium.plugins import HeatMap
 
@@ -139,22 +143,63 @@ def get_datafromdb(data,columns, labels):
             # print(df2)
             df=df.append(df2, ignore_index=True)
     df['reason']=df['reason'].astype(int)
+    # make sure df['time'] is a datetime object
+    df['time'] =  pd.to_datetime(df['time']) #, format='%d%b%Y:%H:%M:%S.%f')
     return df
 
-def driver_code(category,base_latitude,base_longitude, data):
+def dsv_map(df, base_latitude, base_longitude, time_start, time_end):
+    points=get_dsv_points(df,time_start, time_end)
+    draw_dsv(points,base_latitude,base_longitude)
+
+def get_days_range(time_start, time_end):
+    c = time_end-time_start
+    return c.days
+
+def get_points(df,time_start,num_days):
+    df=df[df['time'] == time_start+timedelta(days=num_days)]
+    points=np.column_stack(df['latitude'].values,df['longitude'].values)
+    return points
+
+def get_dsv_points(df,time_start, time_end):
+    
+    num_days = get_days_range(time_start, time_end)
+
+    plotting_points=[]
+
+    for i in range(num_days):
+        # per day points    
+        points=get_points(df,time_start,i)
+        # find center
+        points=np.array(points)
+        plotting_points.append(np.mean(points))
+    
+    return np.array(plotting_points) 
+
+def draw_dsv(points,base_latitude, base_longitude):
+    # draw an intial market the first point
+
+    my_map = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
+    folium.TileLayer('cartodbdark_matter').add_to(my_map)
+    folium.Marker(points[0]).add_to(my_map)
+    folium.PolyLine(points, color="red", weight=3.5, opacity=1).add_to(my_map)
+    return my_map._repr_html_()
+
+def driver_code(category,base_latitude,base_longitude, data, time_start, time_end):
     """
     Params to get : labels, columns, num_examples, df
     testing the folium code
     """
     assert type(base_latitude) is float and type(base_longitude) is float and type(category) is int
-    
+    assert type(time_start) is datetime and type(time_end) is datetime
 
     labels=np.array(['Drugs','Domestic Violence','Car accidents','Guns'])
 
-    columns=np.array(['latitude','longitude','reason'])
+    columns=np.array(['latitude','longitude','reason', 'time'])
     
     # num_examples=100  
     # df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
+
+    # include the data_frame time values
 
     df= get_datafromdb(data, columns, labels)
     # print(df.values)
@@ -162,15 +207,21 @@ def driver_code(category,base_latitude,base_longitude, data):
         return draw_clusters_on_map(df,labels,base_latitude,base_longitude)
     elif(category==1):
         return heat_map(df,base_latitude, base_longitude)
-    pass
+    elif(category==2):
+        return dsv_map(df, base_latitude, base_longitude, time_start, time_end)
+    
 def index(request):
     # Boston coordinates
     # base_latitude = 42.3397
     # base_longitude = -71.1352
 
-    category = int(request.GET.get("category")) # 0: cluster_map 1: heat_map
+    category = int(request.GET.get("category")) # 0: cluster_map 1: heat_map 2: DSV map
     time_start = request.GET.get("time_st")
     time_end = request.GET.get("time_end")
+    time_start = datetime.strptime(time_start, '%Y-%m-%d')
+    time_end = datetime.strptime(time_end, '%Y-%m-%d')
+    
+    #filters results per time frame
 
     center_lat = float(request.GET.get("c_lat"))
     center_long = float(request.GET.get("c_long"))
@@ -179,5 +230,5 @@ def index(request):
     table = client.hacked.er_patient_data
     data = table.find({})
     # print(data[0]['longitude'])
-    return HttpResponse(driver_code(category, center_lat, center_long, data))
+    return HttpResponse(driver_code(category, center_lat, center_long, data, time_start, time_end))
 
