@@ -1,11 +1,13 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 
-# Create your views here.
+from pymongo import MongoClient
 
 import pandas as pd
 import numpy as np
 import folium
+import json
+
 import collections
 from folium.plugins import HeatMap
 
@@ -42,12 +44,12 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude):
 
     # set color scheme for the clusters
     k=len(labels)
-    count=collections.Counter(df['crime_label'].values)
-    total=len(df['crime_label'].values)
+    count=collections.Counter(df['reason'].values)
+    total=len(df['reason'].values)
     rainbow=get_colors(k)
-    for cluster in range(0,k): 
+    for cluster in range(0,k):
         group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]+" ("+str(count[cluster]/total)+"%)"))
-        for lat, lon,label in zip(df['latitude'], df['longitude'], df['crime_label']):
+        for lat, lon,label in zip(df['latitude'], df['longitude'], df['reason']):
             if int(label) == cluster:
                 label = folium.Popup('Clustering ' + str(labels[cluster]), parse_html=True)
                 folium.CircleMarker(
@@ -107,28 +109,60 @@ def heat_map(df,base_latitude, base_longitude):
             Folium object rendered as html
     """
     base_map = folium.Map(location=[base_latitude, base_longitude], zoom_start=11)
-    HeatMap(data=df[["latitude", "longitude" , "crime_label"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
+    HeatMap(data=df[["latitude", "longitude" , "reason"]].groupby(["latitude", "longitude"]).mean().reset_index().values.tolist(),
     radius=8, max_zoom=13).add_to(base_map)
     return base_map._repr_html_()
 
-def driver_code(category,base_latitude,base_longitude):
+def get_datafromdb(data,columns, labels):
+    """
+    Params :
+        data : MongoDB object
+                patient data
+        columns : string list
+            column names of data frame
+        labels : string list
+            list of crime types
+    Returns :
+        df : pandas dataframe
+            data
+    """ 
+    mappingdict = {}
+    for i,label in enumerate(labels):
+        mappingdict.update({label:i})
+
+    df= pd.DataFrame(columns=columns)
+    for dat in data:
+        if(dat):
+            df2=pd.DataFrame(dat,index=[0])
+            df2=df2[columns]
+            df2['reason']=mappingdict[df2['reason'].values[0]]
+            # print(df2)
+            df=df.append(df2, ignore_index=True)
+    df['reason']=df['reason'].astype(int)
+    return df
+
+def driver_code(category,base_latitude,base_longitude, data):
     """
     Params to get : labels, columns, num_examples, df
     testing the folium code
     """
     assert type(base_latitude) is float and type(base_longitude) is float and type(category) is int
     
+
     labels=np.array(['Drugs','Domestic Violence','Car accidents','Guns'])
 
-    columns=np.array(['latitude','longitude','crime_label'])
-    num_examples=100  
+    columns=np.array(['latitude','longitude','reason'])
+    
+    # num_examples=100  
+    # df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
 
-    df=get_random_dataframe(base_latitude, base_longitude, labels, num_examples, columns)
+    df= get_datafromdb(data, columns, labels)
+    # print(df.values)
     if(category==0):
         return draw_clusters_on_map(df,labels,base_latitude,base_longitude)
     elif(category==1):
         return heat_map(df,base_latitude, base_longitude)
-
+    pass
 def index(request):
     # Boston coordinates
     # base_latitude = 42.3397
@@ -137,8 +171,13 @@ def index(request):
     category = int(request.GET.get("category")) # 0: cluster_map 1: heat_map
     time_start = request.GET.get("time_st")
     time_end = request.GET.get("time_end")
+
     center_lat = float(request.GET.get("c_lat"))
     center_long = float(request.GET.get("c_long"))
 
-    return HttpResponse(driver_code(category, center_lat, center_long))
+    client = MongoClient("mongodb+srv://insight:insight@cluster0-ixccp.mongodb.net/test?retryWrites=true&w=majority")
+    table = client.hacked.er_patient_data
+    data = table.find({})
+    # print(data[0]['longitude'])
+    return HttpResponse(driver_code(category, center_lat, center_long, data))
 
