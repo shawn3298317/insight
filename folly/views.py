@@ -46,7 +46,7 @@ def draw_clusters_on_map(df,labels,base_latitude,base_longitude,map_name):
     k=len(labels)
     rainbow=get_colors(k)
     for cluster in range(0,k): 
-        group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],cluster))
+        group = folium.FeatureGroup(name='<span style=\\"color: {0};\\">{1}</span>'.format(rainbow[cluster-1],labels[cluster]))
         for lat, lon,label in zip(df['latitude'], df['longitude'], df['crime_label']):
             if int(label) == cluster: 
                 label = folium.Popup('Clustering ' + str(labels[cluster]), parse_html=True)
